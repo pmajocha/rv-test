@@ -1,11 +1,16 @@
 use std::ffi::CString;
 
 mod c {
+    #[repr(C)]
+    pub struct MatchResult {
+        pub error_code: i32,
+        pub is_match: bool,
+    }
+
     extern "C" {
-        /// Removes `pattern` from memory
         pub fn validate(pattern: *const libc::c_char) -> bool;
-        /// Removes `pattern` from memory
         pub fn error_code(pattern: *const libc::c_char) -> i32;
+        pub fn is_match(pattern: *const libc::c_char, str: *const libc::c_char) -> MatchResult;
     }
 }
 
@@ -22,15 +27,27 @@ pub fn check_error(pattern: &str) -> Option<RegexError> {
         let code = unsafe { c::error_code(c_str.as_ptr() as *const _) };
         code.try_into().ok()
     } else {
-        Some(RegexError::StringTrailingCharactersInTheMiddle)
+        Some(RegexError::StringTerminatingCharactersInTheMiddle)
     }
+}
+
+pub fn matches(pattern: &str, text: &str) -> Result<bool, RegexError> {
+    match (CString::new(pattern), CString::new(text)) {
+        (Ok(pattern), Ok(text)) => {
+            match unsafe { c::is_match(pattern.as_ptr() as *const _, text.as_ptr() as *const _) } {
+                c::MatchResult { error_code: 0, is_match } => Ok(is_match),
+                c::MatchResult { error_code, .. } => Err(RegexError::from(error_code)),
+            }
+        },
+        _ => Err(RegexError::StringTerminatingCharactersInTheMiddle)
+    }    
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum RegexError {
     // re2 errors
-    ErrorInternal = 1,
+    ErrorInternal,
     ErrorBadEscape,          
     ErrorBadCharClass,       
     ErrorBadCharRange,
@@ -46,30 +63,29 @@ pub enum RegexError {
     ErrorBadNamedCapture,
     ErrorPatternTooLarge,
     // rust errors
-    StringTrailingCharactersInTheMiddle,
+    StringTerminatingCharactersInTheMiddle,
+    ParseErrorCode(i32),
 }
 
-impl TryFrom<i32> for RegexError {
-    type Error = ();
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
+impl From<i32> for RegexError {
+    fn from(value: i32) -> Self {
         match value {
-            1 => Ok(Self::ErrorInternal),
-            2 => Ok(Self::ErrorBadEscape),          
-            3 => Ok(Self::ErrorBadCharClass),       
-            4 => Ok(Self::ErrorBadCharRange),       
-            5 => Ok(Self::ErrorMissingBracket),     
-            6 => Ok(Self::ErrorMissingParen),       
-            7 => Ok(Self::ErrorUnexpectedParen),    
-            8 => Ok(Self::ErrorTrailingBackslash),  
-            9 => Ok(Self::ErrorRepeatArgument),     
-            10 => Ok(Self::ErrorRepeatSize),        
-            11 => Ok(Self::ErrorRepeatOp),          
-            12 => Ok(Self::ErrorBadPerlOp),         
-            13 => Ok(Self::ErrorBadUTF8),            
-            14 => Ok(Self::ErrorBadNamedCapture),    
-            15 => Ok(Self::ErrorPatternTooLarge), 
-            _ => Err(())
+            1 => Self::ErrorInternal,
+            2 => Self::ErrorBadEscape,          
+            3 => Self::ErrorBadCharClass,       
+            4 => Self::ErrorBadCharRange,       
+            5 => Self::ErrorMissingBracket,     
+            6 => Self::ErrorMissingParen,       
+            7 => Self::ErrorUnexpectedParen,    
+            8 => Self::ErrorTrailingBackslash,  
+            9 => Self::ErrorRepeatArgument,     
+            10 => Self::ErrorRepeatSize,        
+            11 => Self::ErrorRepeatOp,          
+            12 => Self::ErrorBadPerlOp,         
+            13 => Self::ErrorBadUTF8,            
+            14 => Self::ErrorBadNamedCapture,    
+            15 => Self::ErrorPatternTooLarge, 
+            _ => Self::ParseErrorCode(value),
         }
     }
 }
@@ -94,7 +110,8 @@ impl std::fmt::Display for RegexError {
             RegexError::ErrorBadUTF8 => write!(f, "invalid UTF-8 in regexp"),
             RegexError::ErrorBadNamedCapture => write!(f, "bad named capture group"),
             RegexError::ErrorPatternTooLarge => write!(f, "pattern too large"),
-            RegexError::StringTrailingCharactersInTheMiddle => write!(f, "pattern had string terminating characters '/0' in the string")
+            RegexError::StringTerminatingCharactersInTheMiddle => write!(f, "pattern had string terminating characters '/0' in the string"),
+            RegexError::ParseErrorCode(code) => write!(f, "error code is outside of range of known error codes: {code}"),
         }
     }
 }
@@ -104,13 +121,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_check_validation() {
+    fn it_checks_validation() {
         assert!(is_valid(".*"));
         assert!(!is_valid("((("));
     }
 
     #[test]
-    fn it_return_proper_error_code() {
+    fn it_returns_proper_error_code() {
         assert_eq!(check_error("("), Some(RegexError::ErrorMissingParen));
+    }
+
+    #[test]
+    fn it_matches_regex() {
+        assert_eq!(matches("(", "abc"), Err(RegexError::ErrorMissingParen));
+        assert_eq!(matches("[a-zA-Z]{4}", "xxz abc"), Ok(false));
+        assert_eq!(matches("[a-zA-Z]{4}", "xxzA abc"), Ok(true));
     }
 }
