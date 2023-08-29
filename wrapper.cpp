@@ -20,8 +20,9 @@ extern "C" int error_code(const char* pattern) {
     return re2.error_code();
 }
 
-extern "C" MatchResult is_match(const char* pattern, const char* text) {
-    const auto opts = RE2::Options(RE2::CannedOptions::Quiet);
+extern "C" MatchResult is_match(const char* pattern, const char* text, bool case_sensitive) {
+    auto opts = RE2::Options(RE2::CannedOptions::Quiet);
+    opts.set_case_sensitive(case_sensitive);
     const auto re2 = RE2(pattern, opts);
 
     if (re2.ok()) {

@@ -10,7 +10,7 @@ mod c {
     extern "C" {
         pub fn validate(pattern: *const libc::c_char) -> bool;
         pub fn error_code(pattern: *const libc::c_char) -> i32;
-        pub fn is_match(pattern: *const libc::c_char, str: *const libc::c_char) -> MatchResult;
+        pub fn is_match(pattern: *const libc::c_char, str: *const libc::c_char, case_sensitive: bool) -> MatchResult;
     }
 }
 
@@ -31,10 +31,10 @@ pub fn check_error(pattern: &str) -> Option<RegexError> {
     }
 }
 
-pub fn matches(pattern: &str, text: &str) -> Result<bool, RegexError> {
+pub fn match_re(pattern: &str, text: &str, case_sensitive: bool) -> Result<bool, RegexError> {
     match (CString::new(pattern), CString::new(text)) {
         (Ok(pattern), Ok(text)) => {
-            match unsafe { c::is_match(pattern.as_ptr() as *const _, text.as_ptr() as *const _) } {
+            match unsafe { c::is_match(pattern.as_ptr() as *const _, text.as_ptr() as *const _, case_sensitive) } {
                 c::MatchResult { error_code: 0, is_match } => Ok(is_match),
                 c::MatchResult { error_code, .. } => Err(RegexError::from(error_code)),
             }
@@ -133,8 +133,8 @@ mod tests {
 
     #[test]
     fn it_matches_regex() {
-        assert_eq!(matches("(", "abc"), Err(RegexError::ErrorMissingParen));
-        assert_eq!(matches("[a-zA-Z]{4}", "xxz abc"), Ok(false));
-        assert_eq!(matches("[a-zA-Z]{4}", "xxzA abc"), Ok(true));
+        assert_eq!(match_re("(", "abc", true), Err(RegexError::ErrorMissingParen));
+        assert_eq!(match_re("[a-zA-Z]{4}", "xxz abc", true), Ok(false));
+        assert_eq!(match_re("[a-zA-Z]{4}", "xxzA abc", true), Ok(true));
     }
 }
