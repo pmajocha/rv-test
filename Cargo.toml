@@ -1,0 +1,14 @@
+[package]
+name = "regex-validator"
+version = "0.1.0"
+edition = "2021"
+include = ["/src/*", "/re2/**/*", "/Cargo.toml", "/build.rs"]
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2.0"
+
+[build-dependencies]
+cc = "1.0"
