@@ -82,6 +82,7 @@ fn main() {
     println!("cargo:rustc-link-lib=static=absl_symbolize");
     println!("cargo:rustc-link-lib=static=absl_throw_delegate");
     println!("cargo:rustc-link-lib=static=absl_time_zone");
+    println!("cargo:rustc-link-lib=static=stdc++");
     println!("cargo:rustc-link-search=./lib");
     println!("cargo:rerun-if-changed=wrapper.cpp");
     println!("cargo:rerun-if-changed=build.rs");
