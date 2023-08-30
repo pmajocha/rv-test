@@ -88,7 +88,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     cc::Build::new()
         .cpp(true)
-        .cpp_link_stdlib("stdc++")
+        //.cpp_link_stdlib("stdc++")
         .file("wrapper.cpp")
         .include("./re2/include")
         .compile("wrapper");
