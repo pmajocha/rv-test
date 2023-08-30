@@ -82,14 +82,12 @@ fn main() {
     println!("cargo:rustc-link-lib=static=absl_symbolize");
     println!("cargo:rustc-link-lib=static=absl_throw_delegate");
     println!("cargo:rustc-link-lib=static=absl_time_zone");
-    //println!("cargo:rustc-link-search=/usr/local/lib");
-    println!("cargo:rustc-link-search=./built-libraries");
+    println!("cargo:rustc-link-search=./lib");
     println!("cargo:rerun-if-changed=wrapper.cpp");
     println!("cargo:rerun-if-changed=build.rs");
     cc::Build::new()
         .cpp(true)
-        //.cpp_link_stdlib("stdc++")
         .file("wrapper.cpp")
-        .include("./re2/include")
+        .include("./include")
         .compile("wrapper");
 }
